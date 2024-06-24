@@ -1,0 +1,18 @@
+---
+submap:
+    width: 1000         # 子地图宽度(px)
+    height: 1000        # 子地图高度(px)
+    resolution: 20      # 子地图分辨率(px/m)
+    robot_width: 0.5    # 机器人宽度(m, x轴方向)
+    robot_height: 1.0   # 机器人高度(m, y轴方向)
+    method: 0           # 0: 代表bresenham栅格化，1: 代表模版栅格化
+    occupy_range: 200   # 模版栅格化范围
+    field_range: 20     # likelihood模版范围
+
+tracking:
+    keyframe_pos_th: 0.3 # 单位：m
+    keyframe_ang_th: 15  # 单位：度
+    keyframe_num_th: 50  # 子地图最大承载量
+
+viewer:
+    use_viewer: False   # 是否使用可视化

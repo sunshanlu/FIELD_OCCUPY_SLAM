@@ -1,0 +1,17 @@
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+    <name>field_occupy_slam_2d</name>
+    <version>0.0.0</version>
+    <description>对ORB_SLAM2的完全重写</description>
+    <maintainer email="ssl2001@126.com">rookie-lu</maintainer>
+    <license>GNU GENERAL PUBLIC LICENSE</license>
+    <buildtool_depend>ament_cmake</buildtool_depend>
+    <depend>rclcpp</depend>
+    <depend>sensor_msgs</depend>
+    <depend>geometry_msgs</depend>
+    <test_depend>ament_lint_auto</test_depend>
+    <test_depend>ament_lint_common</test_depend>
+    <export>
+        <build_type>ament_cmake</build_type>
+    </export>
+</package>
