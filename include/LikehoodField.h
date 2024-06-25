@@ -48,7 +48,7 @@ public:
     }
 
     /// 获取似然场图像
-    cv::Mat GetFieldImg() const { return field_.clone(); }
+    const cv::Mat &GetFieldImg() const { return field_; }
 
 private:
     cv::Mat field_;  ///< 似然场

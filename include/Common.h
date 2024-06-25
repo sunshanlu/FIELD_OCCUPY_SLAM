@@ -34,6 +34,7 @@ struct Options {
     float keyframe_pos_th_;
     float keyframe_ang_th_;
     int keyframe_num_th_;
+    bool use_viewer_;
 };
 
 } // namespace fos

@@ -3,6 +3,7 @@
 #include "Common.h"
 #include "Frame.h"
 #include "SubMap.h"
+#include "Viewer.h"
 
 namespace fos {
 
@@ -19,6 +20,9 @@ public:
     };
 
     Tracking(const Options::Ptr &options);
+
+    /// 设置可视化器
+    void SetViewer(Viewer::Ptr viewer) { viewer_ = std::move(viewer); }
 
     /// 处理雷达帧的主逻辑函数
     SE2 GrabFrame(const Frame::Ptr &frame);
@@ -45,6 +49,7 @@ private:
     float keyframe_ang_th_;    ///< 关键帧角度阈值
     int keyframe_num_th_;      ///< 关键帧数量阈值
     Options::Ptr options_;     ///< 参数指针
+    Viewer::Ptr viewer_;       ///< 可视化指针
 };
 
 } // namespace fos

@@ -4,8 +4,6 @@
 
 namespace fos {
 
-bool operator<(const cv::Point2i &a, const cv::Point2i &b) { return a.x < b.x; }
-
 /**
  * @brief 将激光数据帧添加到栅格地图中去
  *

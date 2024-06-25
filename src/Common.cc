@@ -8,12 +8,14 @@ Options::Options(const std::string &path) {
     YAML::Node Config = YAML::LoadFile(path);
     if (!Config)
         throw std::runtime_error("Failed to load config file");
-    
+
     YAML::Node submap = Config["submap"];
     YAML::Node tracking = Config["tracking"];
-    if (!submap || !tracking)
+    YAML::Node viewer = Config["viewer"];
+
+    if (!submap || !tracking || !viewer)
         throw std::runtime_error("Invalid config file");
-    
+
     width_ = submap["width"].as<int>();
     height_ = submap["height"].as<int>();
     resolution_ = submap["resolution"].as<int>();
@@ -26,6 +28,8 @@ Options::Options(const std::string &path) {
     keyframe_pos_th_ = tracking["keyframe_pos_th"].as<float>();
     keyframe_ang_th_ = tracking["keyframe_ang_th"].as<int>() * M_PI / 180.0;
     keyframe_num_th_ = tracking["keyframe_num_th"].as<int>();
+
+    use_viewer_ = viewer["use_viewer"].as<bool>();
 }
 
 } // namespace fos

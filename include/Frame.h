@@ -18,11 +18,11 @@ public:
     }
 
     /// 这里拷贝主要用于子地图Expand
-    Frame(const Frame &other)
-        : scan_(other.scan_)
-        , pose_(other.pose_)
-        , pose_sub_(other.pose_sub_)
-        , id_(other.id_) {}
+    explicit Frame(const Frame::Ptr &other)
+        : scan_(other->scan_)
+        , pose_(other->pose_)
+        , pose_sub_(other->pose_sub_)
+        , id_(other->id_) {}
 
     ///< 获取Tsb
     const SE2 &GetPoseSub() const { return pose_sub_; }
@@ -36,9 +36,8 @@ public:
     /// 设置Twb
     void SetPose(const SE2 &pose) { pose_ = pose; };
 
-    Frame(const Frame &) = delete;
-
     Frame &operator=(const Frame &) = delete;
+    Frame(const Frame &other) = delete;
 
     /// 查看Range是否合法，模版法调用函数
     bool RangeVaild(const float &range) {
@@ -67,7 +66,7 @@ private:
         , id_(next_id_++)
         , pose_(pose)
         , pose_sub_(pose_sub) {
-        ComputePb;
+        ComputePb();
     }
 
 public:

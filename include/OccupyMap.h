@@ -10,8 +10,14 @@ class OccupyMap {
     friend class LikehoodField;
 
 public:
+    struct Point2iCompare {
+        bool operator()(const cv::Point2i &lhs, const cv::Point2i &rhs) const {
+            return std::tie(lhs.x, lhs.y) < std::tie(rhs.x, rhs.y);
+        }
+    };
+
     using Ptr = std::shared_ptr<OccupyMap>;
-    using Area = std::multiset<cv::Point2i>;
+    using Area = std::multiset<cv::Point2i, Point2iCompare>;
 
     enum class Method {
         BRESENHAM, ///< bresenham栅格化算法
@@ -42,7 +48,7 @@ public:
     bool AddFrame(const Frame::Ptr &frame);
 
     /// 获取栅格地图
-    cv::Mat GetOccuImg() const { return map_.clone(); }
+    const cv::Mat &GetOccuImg() const { return map_; }
 
 private:
     /// 子地图坐标系转换到栅格坐标系
@@ -81,7 +87,5 @@ private:
     TemplatePts template_pts_;    ///< 模版点集合
     float half_rwid_, half_rhei_; ///< 机器人尺寸
 };
-
-bool operator<(const cv::Point2i &a, const cv::Point2i &b);
 
 } // namespace fos

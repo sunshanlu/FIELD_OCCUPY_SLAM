@@ -5,7 +5,9 @@ namespace fos {
 SubMap::SubMap(SE2 pose, int width, int height, int resolution, float half_rwid, float half_rhei,
                OccupyMap::Method method, int range_map, int range_field)
     : pose_(std::move(pose))
-    , range_(range_field) {
+    , range_(range_field)
+    , resolution_(resolution)
+    , origin_(width / 2, height / 2) {
     field_ = std::make_shared<LikehoodField>();
     map_ = std::make_shared<OccupyMap>(width, height, resolution, half_rwid, half_rhei, method, range_map);
     id_ = next_id_++;
@@ -26,6 +28,7 @@ SubMap::SubMap(SE2 pose, const Options::Ptr &option)
  * @return false    在更新地图的过程中没有出现栅格范围以外的点
  */
 bool SubMap::Update(const Frame::Ptr &frame) {
+    std::lock_guard<std::mutex> lock(mutex_);
     bool bOutRange = map_->AddFrame(frame);
     if (!bOutRange)
         field_->ResetField(map_, range_);
@@ -53,6 +56,30 @@ void SubMap::ExpandFromOther(const SubMap::Ptr &other) {
         map_->AddFrame(frame);
         field_->ResetField(map_, range_);
     }
+}
+
+/**
+ * @brief 获取SubMap的地图图像
+ * @details
+ *      1. 似然场在左，栅格图在右
+ * @return cv::Mat 输出的SubMap地图图像
+ */
+std::pair<cv::Mat, cv::Mat> SubMap::GetMapImg() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const cv::Mat &OccupyMap = map_->GetOccuImg();
+    const cv::Mat &LikelihoodMap = field_->GetFieldImg();
+    return std::make_pair(OccupyMap, LikelihoodMap);
+}
+
+/**
+ * @brief 将世界坐标系下的点转换到子地图坐标系下
+ *
+ * @param Pw 世界坐标系下的点
+ * @return cv::Point2i 输出的子地图坐标系下的点
+ */
+cv::Point2i SubMap::World2Sub(const Vec2 &Pw) {
+    Eigen::Vector2i Ps = (resolution_ * (pose_.inverse() * Pw) + origin_).cast<int>();
+    return cv::Point2i(Ps[0], Ps[1]);
 }
 
 } // namespace fos

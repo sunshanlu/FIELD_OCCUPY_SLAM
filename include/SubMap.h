@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mutex>
+
 #include "Common.h"
 #include "Frame.h"
 #include "LikehoodField.h"
@@ -36,6 +38,14 @@ public:
     /// 获取地图中关键帧数量
     int GetMapSize() const { return keyframes_.size(); }
 
+    /// 将世界坐标系下的点转换到子地图坐标系下
+    cv::Point2i World2Sub(const Vec2 &Pw);
+
+    /// 获取地图图像（左边为似然场，右边为栅格图）
+    std::pair<cv::Mat, cv::Mat> GetMapImg();
+
+    int GetID() const { return id_; }
+
 private:
     SE2 pose_;                 ///< Tws
     Keyframes keyframes_;      ///< 子地图中的关键帧
@@ -44,6 +54,9 @@ private:
     int range_;                ///< 似然场模版尺寸
     int id_;                   ///< 子地图id
     static int next_id_;       ///< 下一个子地图id
+    int resolution_;           ///< 子地图分辨率(px/m)
+    Vec2 origin_;              ///< 中心点
+    std::mutex mutex_;         ///< subMap的互斥锁
 };
 
 } // namespace fos

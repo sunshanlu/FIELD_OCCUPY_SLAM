@@ -15,6 +15,15 @@ find_package(Sophus REQUIRED)
 find_package(g2o REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(yaml-cpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+
+file(GLOB PROJECT_SOURCE_FILES ${PROJECT_SOURCE_DIR}/src/*.cc)
+add_library(fos SHARED ${PROJECT_SOURCE_FILES})
+target_link_libraries(fos Sophus::Sophus ${OpenCV_LIBS} yaml-cpp g2o_core g2o_stuff)
+ament_target_dependencies(fos rclcpp sensor_msgs)
+
+add_subdirectory(${PROJECT_SOURCE_DIR}/example)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)

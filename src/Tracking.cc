@@ -13,6 +13,8 @@ Tracking::Tracking(const Options::Ptr &options)
 
 SE2 Tracking::GrabFrame(const Frame::Ptr &frame) {
     curr_frame_ = frame;
+    if (viewer_)
+        viewer_->SetFrame(curr_frame_);
     state_ = TrackState::NOT_INIT;
     switch (state_) {
     case TrackState::NOT_INIT:
@@ -64,6 +66,8 @@ void Tracking::Track() {
         if (bOutRange || curr_map_->GetMapSize() > keyframe_num_th_) {
             last_map_ = curr_map_;
             curr_map_ = std::make_shared<SubMap>(curr_frame_->GetPose(), options_);
+            if (viewer_)
+                viewer_->SetSubMap(curr_map_);
             all_maps_.push_back(curr_map_);
             curr_map_->AddKeyFrame(curr_frame_);
             curr_frame_->SetPoseSub(SE2());
