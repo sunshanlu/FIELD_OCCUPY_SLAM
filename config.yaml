@@ -15,4 +15,5 @@ tracking:
     keyframe_num_th: 50  # 子地图最大承载量
 
 viewer:
-    use_viewer: False   # 是否使用可视化
+    use_viewer: True   # 是否使用可视化
+    gp_max_size: 500   # 全局地图尺寸

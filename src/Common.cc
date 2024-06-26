@@ -30,6 +30,7 @@ Options::Options(const std::string &path) {
     keyframe_num_th_ = tracking["keyframe_num_th"].as<int>();
 
     use_viewer_ = viewer["use_viewer"].as<bool>();
+    gp_max_size_ = viewer["gp_max_size"].as<int>();
 }
 
 } // namespace fos

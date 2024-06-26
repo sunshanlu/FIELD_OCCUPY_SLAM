@@ -19,6 +19,7 @@ class LikehoodField {
     using BlockSolverX = g2o::BlockSolverX;
     using LinearSolverX = g2o::LinearSolverEigen<BlockSolverX::PoseMatrixType>;
 
+public:
     struct ModelPoint {
         using BuiltModelPts = std::unordered_map<int, cv::Mat>;
 
@@ -51,6 +52,8 @@ public:
     const cv::Mat &GetFieldImg() const { return field_; }
 
 private:
+    void SetField(cv::Mat &model, cv::Mat &roi);
+
     cv::Mat field_;  ///< 似然场
     int resolution_; ///< 似然场分辨率 (px/m)
     Vec2 origin_;    ///< 似然场中心点
@@ -75,6 +78,9 @@ public:
 class FieldEdge : public g2o::BaseUnaryEdge<1, Vec2, SE2Vertex> {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    explicit FieldEdge(LikehoodField *field)
+        : field_(field) {}
 
     bool read(std::istream &is) override { return false; }
 

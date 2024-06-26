@@ -7,7 +7,10 @@ SubMap::SubMap(SE2 pose, int width, int height, int resolution, float half_rwid,
     : pose_(std::move(pose))
     , range_(range_field)
     , resolution_(resolution)
-    , origin_(width / 2, height / 2) {
+    , origin_(width / 2, height / 2)
+    , range_field_(range_field)
+    , width_(width)
+    , height_(height) {
     field_ = std::make_shared<LikehoodField>();
     map_ = std::make_shared<OccupyMap>(width, height, resolution, half_rwid, half_rhei, method, range_map);
     id_ = next_id_++;
@@ -81,5 +84,37 @@ cv::Point2i SubMap::World2Sub(const Vec2 &Pw) {
     Eigen::Vector2i Ps = (resolution_ * (pose_.inverse() * Pw) + origin_).cast<int>();
     return cv::Point2i(Ps[0], Ps[1]);
 }
+
+/**
+ * @brief 将子地图坐标系下的点转换到世界坐标系下
+ *
+ * @param Ps    输入的子地图坐标系下的点
+ * @return Vec2 输出的世界坐标系下的点
+ */
+Vec2 SubMap::Sub2World(const cv::Point2i &Ps) { 
+    return pose_ * ((Vec2(Ps.x, Ps.y) - origin_) / resolution_); 
+}
+
+/**
+ * @brief 获取子地图的边界，用于全局地图可视化
+ *
+ * @param minx 最小x
+ * @param maxx 最大x
+ * @param miny 最小y
+ * @param maxy 最大y
+ */
+void SubMap::GetBound(float &minx, float &maxx, float &miny, float &maxy) {
+    Vec2 Pw1 = Sub2World(cv::Point2i(0, 0));
+    Vec2 Pw2 = Sub2World(cv::Point2i(0, height_ - 1));
+    Vec2 Pw3 = Sub2World(cv::Point2i(width_ - 1, 0));
+    Vec2 Pw4 = Sub2World(cv::Point2i(width_ - 1, height_ - 1));
+    minx = std::min({Pw1[0], Pw2[0], Pw3[0], Pw4[0]});
+    maxx = std::max({Pw1[0], Pw2[0], Pw3[0], Pw4[0]});
+    miny = std::min({Pw1[1], Pw2[1], Pw3[1], Pw4[1]});
+    maxy = std::max({Pw1[1], Pw2[1], Pw3[1], Pw4[1]});
+}
+
+/// SubMap的静态变量
+int SubMap::next_id_ = 0;
 
 } // namespace fos

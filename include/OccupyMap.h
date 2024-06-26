@@ -6,8 +6,11 @@
 namespace fos {
 
 class LikehoodField;
+class SubMap;
+
 class OccupyMap {
     friend class LikehoodField;
+    friend class SubMap;
 
 public:
     struct Point2iCompare {
@@ -54,7 +57,7 @@ private:
     /// 子地图坐标系转换到栅格坐标系
     cv::Point2i SubMap2Occupy(const Vec2 &Ps) {
         Eigen::Vector2i pt = (Ps * resolution_ + origin_).cast<int>();
-        return cv::Point2i(pt[0], pt[1]);
+        return cv::Point2i(pt.x(), pt.y());
     }
 
     /// 构建模版

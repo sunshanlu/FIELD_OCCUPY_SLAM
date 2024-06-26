@@ -33,18 +33,59 @@ public:
     void ExpandFromOther(const SubMap::Ptr &other);
 
     /// 向子地图中添加关键帧
-    void AddKeyFrame(const Frame::Ptr &frame) { keyframes_.push_back(frame); }
+    void AddKeyFrame(const Frame::Ptr &frame) {
+        std::lock_guard<std::mutex> lock(mutex_frame_);
+        keyframes_.push_back(frame);
+    }
 
     /// 获取地图中关键帧数量
     int GetMapSize() const { return keyframes_.size(); }
 
+    const SE2 &GetPose() const { return pose_; }
+
     /// 将世界坐标系下的点转换到子地图坐标系下
     cv::Point2i World2Sub(const Vec2 &Pw);
+
+    /// 地图物理系转换为地图图像系（可设置x偏移量）
+    cv::Point2i C2Sub(const Vec2 &Ps, int deltax = 0) {
+        Vec2 origin(origin_[0] + deltax, origin_[1]);
+        Eigen::Vector2i pf = (Ps * resolution_ + origin).cast<int>();
+        return cv::Point2i(pf[0], pf[1]);
+    }
+
+    /// 将子地图坐标系下的点转换到世界坐标系下
+    Vec2 Sub2World(const cv::Point2i &Ps);
+
+    std::vector<Frame::Ptr> GetKeyframes() {
+        std::lock_guard<std::mutex> lock(mutex_frame_);
+        return keyframes_;
+    }
 
     /// 获取地图图像（左边为似然场，右边为栅格图）
     std::pair<cv::Mat, cv::Mat> GetMapImg();
 
+    /// 获取子地图边界，用于可视化
+    void GetBound(float &minx, float &maxx, float &miny, float &maxy);
+
+    /// 判断Ps点是否在子地图范围内
+    bool IsValid(const cv::Point2i &pt) {
+        if (pt.x < width_ && pt.x >= 0 && pt.y < height_ && pt.y >= 0)
+            return true;
+        return false;
+    }
+
+    /// 获取地图值
+    const uchar &GetMapVal(const cv::Point2i &pt) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        return map_->map_.at<uchar>(pt.y, pt.x);
+    }
+
     int GetID() const { return id_; }
+
+    float GetMaxFieldRange() const {
+        static float range = std::sqrt(2.f * range_field_ * range_field_);
+        return range;
+    }
 
 private:
     SE2 pose_;                 ///< Tws
@@ -57,6 +98,9 @@ private:
     int resolution_;           ///< 子地图分辨率(px/m)
     Vec2 origin_;              ///< 中心点
     std::mutex mutex_;         ///< subMap的互斥锁
+    std::mutex mutex_frame_;   ///< 关键帧的互斥锁
+    int range_field_;          ///< 似然场点模版尺寸
+    int width_, height_;       ///< 宽度和高度
 };
 
 } // namespace fos

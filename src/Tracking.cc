@@ -9,14 +9,15 @@ Tracking::Tracking(const Options::Ptr &options)
     keyframe_pos_th_ = options_->keyframe_pos_th_;
     keyframe_num_th_ = options_->keyframe_num_th_;
     curr_map_ = std::make_shared<SubMap>(SE2(), options_);
+    all_maps_.push_back(curr_map_);
 }
 
 SE2 Tracking::GrabFrame(const Frame::Ptr &frame) {
     curr_frame_ = frame;
-    if (viewer_)
-        viewer_->SetFrame(curr_frame_);
-    state_ = TrackState::NOT_INIT;
     switch (state_) {
+    case TrackState::NOT_FRAME_YET:
+        state_ = TrackState::NOT_INIT;
+
     case TrackState::NOT_INIT:
         Init();
         break;
@@ -43,6 +44,11 @@ void Tracking::Init() {
         last_keyframe_ = curr_frame_;
         curr_map_->AddKeyFrame(curr_frame_);
     }
+    if (viewer_) {
+        viewer_->SetSubMap(curr_map_, all_maps_);
+        viewer_->SetFrame(curr_frame_);
+    }
+    state_ = TrackState::TRACKED;
 }
 
 /**
@@ -59,6 +65,8 @@ void Tracking::Init() {
 void Tracking::Track() {
     curr_frame_->SetPoseSub(last_frame_->GetPoseSub() * velocity_);
     curr_map_->Scan2Map(curr_frame_);
+    if (viewer_)
+        viewer_->SetFrame(curr_frame_);
     bool bkf = IsKeyFrame();
     if (bkf) {
         last_keyframe_ = curr_frame_;
@@ -66,13 +74,14 @@ void Tracking::Track() {
         if (bOutRange || curr_map_->GetMapSize() > keyframe_num_th_) {
             last_map_ = curr_map_;
             curr_map_ = std::make_shared<SubMap>(curr_frame_->GetPose(), options_);
-            if (viewer_)
-                viewer_->SetSubMap(curr_map_);
             all_maps_.push_back(curr_map_);
             curr_map_->AddKeyFrame(curr_frame_);
             curr_frame_->SetPoseSub(SE2());
             curr_map_->Update(curr_frame_);
             curr_map_->ExpandFromOther(last_map_);
+            if (viewer_)
+                viewer_->SetSubMap(curr_map_, all_maps_);
+
         } else
             curr_map_->AddKeyFrame(curr_frame_);
     }

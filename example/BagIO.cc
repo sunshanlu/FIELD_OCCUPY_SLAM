@@ -3,6 +3,7 @@
 #include <rosbag2_cpp/readers/sequential_reader.hpp>
 
 #include "BagIO.h"
+#include "System.h"
 
 namespace fos {
 
@@ -39,12 +40,24 @@ void BagIO::Go() {
 } // namespace fos
 
 using namespace fos;
-int main(int argc, char **argv) {
+using namespace std::chrono_literals;
 
-    BagIO io("/media/rookie-lu/DATA1/Dataset/2dmapping/floor1");
+int main(int argc, char **argv) {
+    if (argc != 3) {
+        RCLCPP_ERROR(rclcpp::get_logger("fos"), "usage: ./run_mapping_2d config_path bag_path");
+        return -1;
+    }
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<System>(argv[1]);
+
+    BagIO io(argv[2]);
     io.SetLaserCallback([&](const LaserScan::SharedPtr &scan) {
-          std::cout << scan->angle_increment << std::endl;
-          std::cout << scan->header.frame_id << std::endl;
+          SE2 pose = node->GrabLaserScan(scan);
+          RCLCPP_INFO(node->get_logger(), "位姿为：%.2f %.2f %.2f", pose.translation().x(), pose.translation().y(),
+                      pose.so2().log());
+          std::this_thread::sleep_for(30ms);
       }).Go();
+    rclcpp::shutdown();
+
     return 0;
 }

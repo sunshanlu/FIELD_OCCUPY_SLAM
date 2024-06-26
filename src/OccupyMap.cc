@@ -14,7 +14,6 @@ namespace fos {
  */
 bool OccupyMap::AddFrame(const Frame::Ptr &frame) {
     std::vector<cv::Point2i> EndPts;
-    auto &ranges = frame->scan_->ranges;
     for (int i = 0, rnum = frame->points_base_.size(); i < rnum; ++i)
         EndPts.push_back(SubMap2Occupy(frame->GetPoseSub() * frame->points_base_[i]));
     
