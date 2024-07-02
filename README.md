@@ -4,7 +4,11 @@
 
 基于似然场配准和栅格地图的2d-SLAM，并实现基于子地图的金字塔式回环闭合策略。参考高翔的[SADBook](https://github.com/gaoxiang12/slam_in_autonomous_driving)的第六章内容，本项目从头到尾复现了第6章的2d-SLAM内容。
 
-
+<div align="center">
+	<a href="https://www.bilibili.com/video/BV11ihKehEHf" title="bilibili:Field_Occupy_SLAM">
+		<img src="https://raw.githubusercontent.com/sunshanlu/Field_Occupy_SLAM/devel/Field_Occupy_SLAM.jpg" alt="Field_Occupy_SLAM" width=600>
+	</a>
+</div>
 
 1. 使用线程分离策略，将跟踪、可视化和回环闭合分为三个线程独立运行。
 2. 测试了图像的双线性差值对模型优化的贡献，发现模型优化误差并没有因为差值而降低，因此该项目中并没有使用图像的双线性差值来获取浮点数部分的图像灰度。
