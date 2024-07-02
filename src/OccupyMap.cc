@@ -14,8 +14,11 @@ namespace fos {
  */
 bool OccupyMap::AddFrame(const Frame::Ptr &frame) {
     std::vector<cv::Point2i> EndPts;
-    for (int i = 0, rnum = frame->points_base_.size(); i < rnum; ++i)
+    std::vector<uchar> endpts_val;
+    for (int i = 0, rnum = frame->points_base_.size(); i < rnum; ++i){
         EndPts.push_back(SubMap2Occupy(frame->GetPoseSub() * frame->points_base_[i]));
+        endpts_val.push_back(map_.at<uchar>(EndPts[i].y, EndPts[i].x));
+    }
     
     switch (method_) {
     case (Method::BRESENHAM):
@@ -31,6 +34,8 @@ bool OccupyMap::AddFrame(const Frame::Ptr &frame) {
     std::for_each(indices.begin(), indices.end(), [id = 0](int &i) mutable { i = id++; });
     std::for_each(std::execution::par_unseq, indices.begin(), indices.end(), [&](const int &idx) {
         const cv::Point2i &pt = EndPts[idx];
+        const uchar &val = endpts_val[idx];
+        map_.at<uchar>(pt.y, pt.x) = val;
         bool bOccupy = true;
         if (IsNotOccupy(frame->points_base_[idx]))
             bOccupy = false;

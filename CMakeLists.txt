@@ -3,7 +3,7 @@ project(field_occupy_slam_2d)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_BUILD_TYPE Release)
+# set(CMAKE_BUILD_TYPE Debug)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
@@ -26,7 +26,7 @@ find_package(TBB REQUIRED)
 
 file(GLOB PROJECT_SOURCE_FILES ${PROJECT_SOURCE_DIR}/src/*.cc)
 add_library(fos SHARED ${PROJECT_SOURCE_FILES})
-target_link_libraries(fos Sophus::Sophus ${OpenCV_LIBS} yaml-cpp g2o_core g2o_stuff TBB::tbb)
+target_link_libraries(fos Sophus::Sophus ${OpenCV_LIBS} yaml-cpp g2o_core g2o_stuff g2o_types_slam2d TBB::tbb)
 ament_target_dependencies(fos rclcpp sensor_msgs)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/example)

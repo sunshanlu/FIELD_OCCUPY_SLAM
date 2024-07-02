@@ -19,6 +19,7 @@ void Viewer::Run() {
         SubMap::Ptr submap;
         SubMaps submaps;
         Frame::Ptr frame;
+        std::multimap<int, int> loop_edges;
         bool update;
         {
             std::lock_guard<std::mutex> lock1(sub_mutex_);
@@ -32,16 +33,20 @@ void Viewer::Run() {
             std::lock_guard<std::mutex> lock2(frame_mutex_);
             frame = frame_;
         }
+        {
+            std::lock_guard<std::mutex> lock3(loop_edge_mutex_);
+            loop_edges = loop_edges_;
+        }
         auto ret = submap->GetMapImg();
         SubMapImg = DrawSubMap(ret.second, ret.first, submap);
         DrawFrame(SubMapImg, submap, frame);
         DrawRobotSub(SubMapImg, submap, frame);
-        cv::Mat global_map = DrawGlobalMap(options_->gp_max_size_, submaps, frame, update);
+        cv::Mat global_map = DrawGlobalMap(options_->gp_max_size_, submaps, frame, update, loop_edges);
 
         cv::imshow("SubMap", SubMapImg);
         cv::imshow("Map", global_map);
 
-        cv::waitKey(10);
+        cv::waitKey(30);
     }
 }
 
@@ -150,7 +155,8 @@ void Viewer::DrawRobot(cv::Mat &Map, const SE2 &rpose, const C2ImgFunc &c2img) {
  * @param frame     帧信息
  * @return cv::Mat  输出的全局地图
  */
-cv::Mat Viewer::DrawGlobalMap(int max_size, const SubMaps &submaps, const Frame::Ptr &frame, bool update) {
+cv::Mat Viewer::DrawGlobalMap(int max_size, const SubMaps &submaps, const Frame::Ptr &frame, const bool &update,
+                              const std::multimap<int, int> &loop_edges) {
     cv::Mat golbal_map(max_size, max_size, CV_8UC3, cv::Scalar(127, 127, 127));
 
     /// step1: 获取全局地图物理边界
@@ -164,22 +170,8 @@ cv::Mat Viewer::DrawGlobalMap(int max_size, const SubMaps &submaps, const Frame:
     }
 
     /// step2: 设置动态分辨率
-    if (update) {
-        auto submap = submaps[submaps.size() - 1];
-        float minx, miny, maxx, maxy;
-        submap->GetBound(minx, maxx, miny, maxy);
-        minx < gminx_ ? gminx_ = minx : 0;
-        miny < gminy_ ? gminy_ = miny : 0;
-        maxx > gmaxx_ ? gmaxx_ = maxx : 0;
-        maxy > gmaxy_ ? gmaxy_ = maxy : 0;
-        resolution_ = max_size / std::max({gmaxx_ - gminx_, gmaxy_ - gminy_});
-
-        /// step3: 获取物理边界的中心坐标，计算Cx和Cy保证物理中心对应图像中心
-        float cwx = (gmaxx_ + gminx_) / 2;
-        float cwy = (gmaxy_ + gminy_) / 2;
-        cx_ = max_size / 2.f - resolution_ * cwx;
-        cy_ = max_size / 2.f - resolution_ * cwy;
-    }
+    if (update)
+        UpdateGMapSize(max_size, submaps[submaps.size() - 1]);
 
     /// step4: 遍历全局地图，从submap中获取对应像素值
     std::vector<Eigen::Vector2i> reder_pts;
@@ -222,6 +214,7 @@ cv::Mat Viewer::DrawGlobalMap(int max_size, const SubMaps &submaps, const Frame:
     DrawRobot(golbal_map, frame->GetPose(), c2img);
     DrawTraject(golbal_map, poses, c2img);
     DrawSubAxis(golbal_map, submaps, c2img);
+    DrawLoopEdges(golbal_map, loop_edges, submaps, c2img);
 
     return golbal_map;
 }
@@ -234,6 +227,8 @@ cv::Mat Viewer::DrawGlobalMap(int max_size, const SubMaps &submaps, const Frame:
  * @param c2img     输入的物理系转换为图像系函数
  */
 void Viewer::DrawTraject(cv::Mat &Map, const std::vector<SE2> &poses, const C2ImgFunc &c2img) {
+    if (poses.empty())
+        return;
     for (std::size_t i = 0; i < poses.size() - 1; ++i) {
         Vec2 Pw0 = poses[i].translation();
         Vec2 Pw1 = poses[i + 1].translation();
@@ -263,6 +258,51 @@ void Viewer::DrawSubAxis(cv::Mat &map, const SubMaps &submaps, const C2ImgFunc &
         cv::line(map, origin, ay, cv::Scalar(255, 0, 0), 1);
         cv::putText(map, std::to_string(submap->GetID()), origin, cv::FONT_HERSHEY_COMPLEX, 0.5, cv::Scalar(255, 0, 0));
     }
+}
+
+/**
+ * @brief 绘制回环边
+ *
+ * @param map   输入的待绘制的地图
+ * @param c2img 输入的物理系转为图像系函数
+ */
+void Viewer::DrawLoopEdges(cv::Mat &map, const std::multimap<int, int> &loop_edges, const SubMaps &all_submaps,
+                           const C2ImgFunc &c2img) {
+    int max_id = all_submaps[all_submaps.size() - 1]->GetID();
+    for (auto &edge : loop_edges) {
+        if (edge.first > max_id || edge.second > max_id)
+            continue;
+        const SE2 &Tws1 = all_submaps[edge.first]->GetPose();
+        const SE2 &Tws2 = all_submaps[edge.second]->GetPose();
+        cv::Point2i p1 = c2img(Tws1.translation());
+        cv::Point2i p2 = c2img(Tws2.translation());
+        cv::line(map, p1, p2, cv::Scalar(255, 0, 0), 2);
+    }
+}
+
+/**
+ * @brief 输入一个submap，以更新全局地图的尺寸信息
+ * @details
+ *      1. 更新全局地图的长宽信息
+ *      2. 更新全局地图的分辨率
+ *      3. 更新全局地图的偏移向量，保证图片中心对应物理中心
+ * @param max_size
+ * @param submap
+ */
+void Viewer::UpdateGMapSize(const int &max_size, const SubMap::Ptr &submap) {
+    float minx, miny, maxx, maxy;
+    submap->GetBound(minx, maxx, miny, maxy);
+    minx < gminx_ ? gminx_ = minx : 0;
+    miny < gminy_ ? gminy_ = miny : 0;
+    maxx > gmaxx_ ? gmaxx_ = maxx : 0;
+    maxy > gmaxy_ ? gmaxy_ = maxy : 0;
+    resolution_ = max_size / std::max({gmaxx_ - gminx_, gmaxy_ - gminy_});
+
+    /// step3: 获取物理边界的中心坐标，计算Cx和Cy保证物理中心对应图像中心
+    float cwx = (gmaxx_ + gminx_) / 2;
+    float cwy = (gmaxy_ + gminy_) / 2;
+    cx_ = max_size / 2.f - resolution_ * cwx;
+    cy_ = max_size / 2.f - resolution_ * cwy;
 }
 
 } // namespace fos

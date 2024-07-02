@@ -1,4 +1,8 @@
 ---
+laser:
+    max_range: 15.0     # 激光雷达最大探测距离
+    delta_angle: 30.0   # 激光雷达在原有扫描基础上减少的角度
+
 submap:
     width: 1000         # 子地图宽度(px)
     height: 1000        # 子地图高度(px)
@@ -13,7 +17,30 @@ tracking:
     keyframe_pos_th: 0.3 # 单位：m
     keyframe_ang_th: 15  # 单位：度
     keyframe_num_th: 50  # 子地图最大承载量
+    range_th: 15         # scan的长度阈值
+    motion_guss: True    # 是否使用运动模型
+    reloc_th: 0.06       # 如果匹配内点结果小于0.1，进行重定位
+    only_track: False    # 是否仅跟踪模式
 
 viewer:
     use_viewer: True   # 是否使用可视化
     gp_max_size: 500   # 全局地图尺寸
+
+loopcloser:
+    use_loopcloser: True    # 是否使用闭环检测
+    layer_num: 4            # 金字塔层级
+    layer_ratio: 2.0        # 金字塔缩放比例
+    inlier_ratio: 0.5       # 匹配内点比例
+    error_th:               # 每一层误差阈值，单位为m
+        - 0.8
+        - 0.6
+        - 0.3
+        - 0.2
+    distance_th: 15.0       # 回环闭合候选距离阈值
+    submap_gap: 1           # 回环闭合候选子地图相隔距离
+    loop_rk_delta: 1.0      # 位姿图优化核函数delta值
+
+map:
+    save_map: False
+    load_map: False
+    map_fp: "/home/rookie-lu/Project/Field_Occupy_SLAM/map"     

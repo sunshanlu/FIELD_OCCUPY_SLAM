@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rosbag2_cpp/reader.hpp>
+#include <rosbag2_cpp/readers/sequential_reader.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 
 #include "Common.h"
@@ -15,6 +15,8 @@ public:
     explicit BagIO(const std::string &BagPath);
 
     void Go();
+
+    LaserScan::SharedPtr GetLaserScan();
 
     BagIO &SetLaserCallback(LaserCallback callback) {
         laser_callback_ = std::move(callback);

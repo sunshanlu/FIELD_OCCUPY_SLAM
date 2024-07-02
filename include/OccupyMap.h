@@ -53,6 +53,15 @@ public:
     /// 获取栅格地图
     const cv::Mat &GetOccuImg() const { return map_; }
 
+    void SetOccupyImg(cv::Mat img) { map_ = img; }
+
+    /// 判断某个点是否合法
+    bool Valid(const cv::Point2i &p) {
+        if (p.x < map_.cols && p.x >= 0 && p.y < map_.rows && p.y >= 0)
+            return true;
+        return false;
+    }
+
 private:
     /// 子地图坐标系转换到栅格坐标系
     cv::Point2i SubMap2Occupy(const Vec2 &Ps) {
@@ -89,6 +98,7 @@ private:
     Method method_;               ///< 栅格化方法
     TemplatePts template_pts_;    ///< 模版点集合
     float half_rwid_, half_rhei_; ///< 机器人尺寸
+    Vec2 gray_center_;            ///< 计算栅格地图的灰度质心
 };
 
 } // namespace fos

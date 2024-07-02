@@ -16,6 +16,7 @@ namespace fos {
 /// @brief 似然场类
 class LikehoodField {
     friend class FieldEdge;
+    friend class MLikehoodField;
     using BlockSolverX = g2o::BlockSolverX;
     using LinearSolverX = g2o::LinearSolverEigen<BlockSolverX::PoseMatrixType>;
 
@@ -33,14 +34,16 @@ public:
     using Ptr = std::shared_ptr<LikehoodField>;
 
     LikehoodField() = default;
+
     /// 对frame进行配准，要求此时frame的pose_sub_肯定肯定有效
-    void AddFrame(const Frame::Ptr &frame, const SE2 &Tws);
+    float AddFrame(const Frame::Ptr &frame, const SE2 &Tws, const float &rk_delta);
 
     /// 以frame重置似然场，其中似然场的位姿与frame相同
-    void ResetField(const Frame::Ptr &frame, int range = 20, int resolution = 20, int width = 1000, int height = 1000);
+    void ResetField(const Frame::Ptr &frame, int range = 20, float resolution = 20, int width = 1000,
+                    int height = 1000);
 
     /// 以栅格地图重置似然场，其中似然场的位姿与栅格地图相同
-    void ResetField(const OccupyMap::Ptr &map, int range = 20);
+    void ResetField(const OccupyMap::Ptr &map, int range = 20, float ratio = 1.0);
 
     /// 输入子地图中的点，返回对应在似然场中的像素坐标
     cv::Point2i SubMap2Field(const Vec2 &Ps) const {
@@ -48,16 +51,22 @@ public:
         return cv::Point2i(pt.x(), pt.y());
     }
 
+    /// 似然场坐标转换为子地图物理坐标
+    Vec2 Field2SubMap(const cv::Point2i &Pf) const { return (Vec2(Pf.x, Pf.y) - origin_) / resolution_; }
+
     /// 获取似然场图像
     const cv::Mat &GetFieldImg() const { return field_; }
 
 private:
-    void SetField(cv::Mat &model, cv::Mat &roi);
+    /// 使用g2o的方式进行似然场优化配准
+    float AlignG2O(const std::vector<Vec2> &scan_, SE2 &pose, float rk_delta);
 
-    cv::Mat field_;  ///< 似然场
-    int resolution_; ///< 似然场分辨率 (px/m)
-    Vec2 origin_;    ///< 似然场中心点
-    int range_;      ///< 点模版宽度
+    void SetField(cv::Mat &template_pt, const int &row, const int &col);
+
+    cv::Mat field_;    ///< 似然场
+    float resolution_; ///< 似然场分辨率 (px/m)
+    Vec2 origin_;      ///< 似然场中心点
+    int range_;        ///< 点模版宽度
 };
 
 /// @brief SE2优化顶点

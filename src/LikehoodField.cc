@@ -1,6 +1,7 @@
 #include <g2o/core/optimization_algorithm_levenberg.h>
 #include <g2o/core/robust_kernel_impl.h>
 #include <g2o/core/sparse_optimizer.h>
+#include <rclcpp/rclcpp.hpp>
 
 #include "LikehoodField.h"
 
@@ -26,12 +27,13 @@ cv::Mat LikehoodField::ModelPoint::CreateModelPt(int range) {
 }
 
 /**
- * @brief 似然场配准优化函数
+ * @brief 使用g2o的方式进行scan配准
  *
- * @param frame 输入的雷达帧
- * @param Tws   输入的子地图位姿
+ * @param scan  输入的扫描点云数据Pb
+ * @param pose  输入的初始化位姿Tsb
+ * @return float    输出的内点比例
  */
-void LikehoodField::AddFrame(const Frame::Ptr &frame, const SE2 &Tws) {
+float LikehoodField::AlignG2O(const std::vector<Vec2> &scan, SE2 &pose, float rk_delta) {
     g2o::SparseOptimizer optimizer;
     auto lm =
         new g2o::OptimizationAlgorithmLevenberg(std::make_unique<BlockSolverX>(std::make_unique<LinearSolverX>()));
@@ -39,34 +41,77 @@ void LikehoodField::AddFrame(const Frame::Ptr &frame, const SE2 &Tws) {
 
     auto v = new SE2Vertex;
     v->setId(0);
-    v->setEstimate(frame->GetPoseSub());
+    v->setEstimate(pose);
     optimizer.addVertex(v);
 
     int EdgeID = 0;
-    const double rk_delta = 0.8;
 
-    for (int i = 0, rnum = frame->points_base_.size(); i < rnum; i++) {
+    std::vector<FieldEdge *> edges(scan.size(), nullptr);
+
+    for (int i = 0, rnum = scan.size(); i < rnum; i++) {
         auto e = new FieldEdge(this);
         e->setId(EdgeID++);
         e->setVertex(0, v);
-        e->setMeasurement(frame->points_base_[i]);
+        e->setMeasurement(scan[i]);
         e->setInformation(Eigen::Matrix<double, 1, 1>::Identity());
         auto rk = new g2o::RobustKernelHuber;
         rk->setDelta(rk_delta);
         e->setRobustKernel(rk);
         optimizer.addEdge(e);
+        edges[i] = e;
     }
 
     optimizer.initializeOptimization(0);
     optimizer.setVerbose(false);
     optimizer.optimize(10);
 
-    frame->SetPoseSub(v->estimate());
-    frame->SetPose(Tws * v->estimate());
+    int nliner = 0;
+    int n = 0;
+    for (auto &e : edges) {
+        if (e->level() == 1)
+            continue;
+        if (e->chi2() < rk_delta)
+            ++nliner;
+        ++n;
+    }
+
+    std::vector<float> errors;
+    float chi2 = 0.f;
+    if (nliner / (float)(n + 1e-3) < 0.1) {
+        for (const auto &e : edges)
+            errors.push_back(e->chi2());
+        std::sort(errors.begin(), errors.end());
+        chi2 = std::accumulate(errors.begin(), errors.end(), 0);
+        RCLCPP_INFO(rclcpp::get_logger("fos"), "总误差为: %.2f", chi2);
+    }
+
+    pose = v->estimate();
+    return nliner / (float)(n + 1e-3);
+}
+
+/**
+ * @brief 似然场配准优化函数
+ *
+ * @param frame 输入的雷达帧
+ * @param Tws   输入的子地图位姿
+ * @return float 优化内点的比例
+ */
+float LikehoodField::AddFrame(const Frame::Ptr &frame, const SE2 &Tws, const float &rk_delta) {
+
+    SE2 Tsb = frame->GetPoseSub();
+    float ratio = AlignG2O(frame->points_base_, Tsb, rk_delta);
+
+    frame->SetPoseSub(Tsb);
+    frame->SetPose(Tws * Tsb);
+    return ratio;
 }
 
 /// SE2的更新函数
 void SE2Vertex::oplusImpl(const double *update) {
+    if (std::isnan(update[2]) || std::isnan(update[1]) || std::isnan(update[0])) {
+        setFixed(true);
+        return;
+    }
     _estimate.translation().x() += update[0];
     _estimate.translation().y() += update[1];
     _estimate.so2() *= Sophus::SO2f::exp(update[2]);
@@ -83,15 +128,13 @@ void FieldEdge::computeError() {
     if (IsValid(pf_) && IsValid(pf_add_x_) && IsValid(pf_add_y_) && IsValid(pf_sub_x_) && IsValid(pf_sub_y_))
         _error[0] = field_->field_.at<float>(pf_.y, pf_.x);
     else {
-        _error[0] = -1;
+        _error[0] = 0;
         setLevel(1);
     }
 }
 
 /// 计算雅可比
 void FieldEdge::linearizeOplus() {
-    if (_error[0] == -1)
-        return;
     SE2Vertex *v = dynamic_cast<SE2Vertex *>(_vertices[0]);
     const auto &Tsb = v->estimate();
     float theta = Tsb.so2().log();
@@ -107,7 +150,7 @@ void FieldEdge::linearizeOplus() {
 }
 
 /// 以frame重置似然场，其中似然场的位姿与frame相同
-void LikehoodField::ResetField(const Frame::Ptr &frame, int range, int resolution, int width, int height) {
+void LikehoodField::ResetField(const Frame::Ptr &frame, int range, float resolution, int width, int height) {
     range_ = range;
     resolution_ = resolution;
     origin_[0] = width / 2;
@@ -122,57 +165,48 @@ void LikehoodField::ResetField(const Frame::Ptr &frame, int range, int resolutio
         float x = ranges[i] * cos(angle);
         float y = ranges[i] * sin(angle);
         cv::Point2i p = SubMap2Field(Vec2(x, y));
-        cv::Rect rect(p.x - 20, p.y - 20, 2 * range_ + 1, 2 * range_ + 1);
-        bool c1 = rect.contains(cv::Point2i(0, 0));
-        bool c2 = rect.contains(cv::Point2i(width, 0));
-        bool c3 = rect.contains(cv::Point2i(0, height));
-        bool c4 = rect.contains(cv::Point2i(width, height));
-        if (c1 || c2 || c3 || c4)
-            continue;
-        cv::Mat roi = field_(rect);
-        SetField(TemplatePt, roi);
+        SetField(TemplatePt, p.y, p.x);
     }
 }
 
-/// 以栅格地图重置似然场，其中似然场的位姿与栅格地图相同
-void LikehoodField::ResetField(const OccupyMap::Ptr &map, int range) {
+/**
+ * @brief 根据给定的不同缩放比例设置似然场
+ *
+ * @param map   输入的栅格地图
+ * @param ratio 输入的缩小比例
+ * @param range 输入的似然场模版范围
+ */
+void LikehoodField::ResetField(const OccupyMap::Ptr &map, int range, float ratio) {
     range_ = range;
-    resolution_ = map->resolution_;
-    origin_ = map->origin_;
-    int width = map->map_.cols;
-    int height = map->map_.rows;
+    resolution_ = map->resolution_ / ratio;
+    int width = std::round(map->map_.cols / ratio);
+    int height = std::round(map->map_.rows / ratio);
+    origin_[0] = width / 2.f;
+    origin_[1] = height / 2.f;
     cv::Mat TemplatePt = ModelPoint::CreateModelPt(range_);
-    field_ = cv::Mat(map->map_.rows, map->map_.cols, CV_32F, cv::Scalar(sqrt(2.f * range_ * range_)));
+    field_ = cv::Mat(height, width, CV_32F, cv::Scalar(sqrt(2.f) * range_));
     for (int row = 0; row < map->map_.rows; ++row) {
         for (int col = 0; col < map->map_.cols; ++col) {
-            if (map->map_.at<uchar>(row, col) < 127) {
-                cv::Point2i p(col, row);
-                cv::Point2i lu(p.x - range_, p.y - range_);
-                cv::Point2i ld(p.x - range_, p.y + range_);
-                cv::Point2i ru(p.x + range_, p.y - range_);
-                cv::Point2i rd(p.x + range_, p.y + range_);
-                bool c1 = lu.x < 0 || lu.x >= field_.cols || lu.y < 0 || lu.y >= field_.rows;
-                bool c2 = ld.x < 0 || ld.x >= field_.cols || ld.y < 0 || ld.y >= field_.rows;
-                bool c3 = ru.x < 0 || ru.x >= field_.cols || ru.y < 0 || ru.y >= field_.rows;
-                bool c4 = rd.x < 0 || rd.x >= field_.cols || rd.y < 0 || rd.y >= field_.rows;
-                if (c1 || c2 || c3 || c4)
-                    continue;
-                cv::Rect rect(lu, rd);
-                cv::Mat roi = field_(rect);
-                SetField(TemplatePt, roi);
-            }
+            cv::Point2i pf(col / ratio, row / ratio);
+            if (pf.x < 0 || pf.x >= width || pf.y < 0 || pf.y >= height)
+                continue;
+            if (map->map_.at<uchar>(row, col) < 127)
+                SetField(TemplatePt, pf.y, pf.x);
         }
     }
 }
 
 /// 设置场函数，只有小的部分才被设置
-void LikehoodField::SetField(cv::Mat &model, cv::Mat &roi) {
-    for (int row = 0; row < model.rows; ++row) {
-        for (int col = 0; col < model.cols; ++col) {
-            float &vm = model.at<float>(row, col);
-            float &vr = roi.at<float>(row, col);
-            if (vm < vr)
-                vr = vm;
+void LikehoodField::SetField(cv::Mat &template_pt, const int &row, const int &col) {
+    for (int dy = -range_; dy <= range_; ++dy) {
+        for (int dx = -range_; dx <= range_; ++dx) {
+            const float &tval = template_pt.at<float>(dy + range_, dx + range_);
+            int real_x = col + dx, real_y = row + dy;
+            if (real_x < 0 || real_x >= field_.cols || real_y < 0 || real_y >= field_.rows)
+                continue;
+            float &fval = field_.at<float>(real_y, real_x);
+            if (tval < fval)
+                fval = tval;
         }
     }
 }

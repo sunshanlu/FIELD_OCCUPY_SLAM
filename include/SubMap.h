@@ -9,7 +9,15 @@
 
 namespace fos {
 
+class LoopClosing;
+class Tracking;
+struct Map;
+
 class SubMap {
+    friend class LoopClosing;
+    friend class Tracking;
+    friend class Map;
+
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
@@ -23,19 +31,31 @@ public:
 
     SubMap(SE2 pose, const Options::Ptr &option);
 
+    void SetPose(const SE2 &pose) { pose_ = pose; }
+
     /// 更新子地图
     bool Update(const Frame::Ptr &frame);
 
+    /// 更新关键帧位姿
+    void UpdateFramePose() {
+        std::lock_guard<std::mutex> lock(mutex_frame_);
+        for (auto &frame : keyframes_)
+            frame->SetPose(pose_ * frame->GetPoseSub());
+    }
+
     /// scan2map似然场配准
-    void Scan2Map(const Frame::Ptr &frame);
+    float Scan2Map(const Frame::Ptr &frame);
 
     /// 从其他子地图中拓展目前子地图
     void ExpandFromOther(const SubMap::Ptr &other);
 
     /// 向子地图中添加关键帧
     void AddKeyFrame(const Frame::Ptr &frame) {
-        std::lock_guard<std::mutex> lock(mutex_frame_);
-        keyframes_.push_back(frame);
+        {
+            std::lock_guard<std::mutex> lock(mutex_frame_);
+            keyframes_.push_back(frame);
+        }
+        frame->submap_ = this;
     }
 
     /// 获取地图中关键帧数量
@@ -87,6 +107,9 @@ public:
         return range;
     }
 
+    /// 判断是否超过submap的地图范围
+    bool IsOutRange(const Frame::Ptr &frame);
+
 private:
     SE2 pose_;                 ///< Tws
     Keyframes keyframes_;      ///< 子地图中的关键帧
@@ -101,6 +124,22 @@ private:
     std::mutex mutex_frame_;   ///< 关键帧的互斥锁
     int range_field_;          ///< 似然场点模版尺寸
     int width_, height_;       ///< 宽度和高度
+    Options::Ptr options_;     ///< 配置指针
+};
+
+/// 地图类，维护所有子地图
+struct Map {
+    using Ptr = std::shared_ptr<Map>;
+
+    Map(Options::Ptr options)
+        : options_(std::move(options)) {}
+
+    void SaveMap(const std::string &fp);
+
+    void LoadMap(const std::string &fp);
+
+    std::vector<SubMap::Ptr> all_maps_; ///< 所有子地图
+    Options::Ptr options_;              ///< 配置选项
 };
 
 } // namespace fos

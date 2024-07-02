@@ -12,8 +12,8 @@ public:
     using Ptr = std::shared_ptr<Frame>;
     using OutSubMapPts = std::vector<std::vector<std::pair<cv::Point2i, bool>>>;
 
-    static Ptr Create(LaserScan::SharedPtr scan, SE2 pose = SE2(), SE2 pose_sub = SE2()) {
-        Ptr ptr(new Frame(scan, pose, pose_sub));
+    static Ptr Create(LaserScan::SharedPtr scan, Options::Ptr options, SE2 pose = SE2(), SE2 pose_sub = SE2()) {
+        Ptr ptr(new Frame(scan, options, pose, pose_sub));
         return ptr;
     }
 
@@ -47,12 +47,19 @@ public:
     }
 
     /// 将(r, theta)极坐标转换为(x, y)笛卡尔坐标
-    void ComputePb() {
+    void ComputePb(float max_range, float delta_alpha) {
         if (!points_base_.empty())
             return;
         for (int i = 0, rnum = scan_->ranges.size(); i < rnum; ++i) {
             if (RangeVaild(scan_->ranges[i])) {
+                if (scan_->ranges[i] > max_range)
+                    continue;
                 float theta = scan_->angle_min + i * scan_->angle_increment;
+
+                if (theta < scan_->angle_min + delta_alpha / 180.0 * M_PI ||
+                    theta > scan_->angle_max - delta_alpha / 180.0 * M_PI)
+                    continue;
+
                 float x = scan_->ranges[i] * cos(theta);
                 float y = scan_->ranges[i] * sin(theta);
                 points_base_.push_back(Vec2(x, y));
@@ -61,23 +68,27 @@ public:
     }
 
 private:
-    Frame(LaserScan::SharedPtr scan, SE2 pose, SE2 pose_sub)
+    Frame(LaserScan::SharedPtr scan, Options::Ptr options, SE2 pose, SE2 pose_sub)
         : scan_(std::move(scan))
+        , submap_(nullptr)
         , id_(next_id_++)
         , pose_(pose)
-        , pose_sub_(pose_sub) {
-        ComputePb();
+        , pose_sub_(pose_sub)
+        , options_(std::move(options)) {
+        ComputePb(options_->max_range_, options_->delta_angle_);
     }
 
 public:
     LaserScan::SharedPtr scan_;     ///< 雷达扫描数据
     std::vector<Vec2> points_base_; ///< 雷达扫描数据的笛卡尔形式
+    SubMap *submap_;                ///< 帧所属的子地图
 
 private:
-    SE2 pose_;           ///< Twc世界坐标系下的位姿
-    SE2 pose_sub_;       ///< 在子地图下的位姿
-    static int next_id_; ///< 下一id
-    int id_;             ///< 帧id
+    SE2 pose_;             ///< Twc世界坐标系下的位姿
+    SE2 pose_sub_;         ///< 在子地图下的位姿
+    static int next_id_;   ///< 下一id
+    int id_;               ///< 帧id
+    Options::Ptr options_; ///< 参数指针
 };
 
 } // namespace fos
