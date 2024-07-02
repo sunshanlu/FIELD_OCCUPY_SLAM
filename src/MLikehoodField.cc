@@ -30,7 +30,6 @@ void MLikehoodField::ResetField(const OccupyMap::Ptr &map, int range) {
 bool MLikehoodField::AddKeyframe(SE2 &Tsb, const Frame::Ptr &frame) {
     for (int idx = layer_num_ - 1; idx >= 0; --idx) {
         float ratio = fields_[idx]->AlignG2O(frame->points_base_, Tsb, options_->error_th_[idx]);
-        std::cout << ratio << std::endl;
         if (ratio < options_->inlier_ratio_)
             return false;
     }

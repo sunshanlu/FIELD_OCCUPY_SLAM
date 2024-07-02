@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
           SE2 pose = node->GrabLaserScan(scan, success);
           //   RCLCPP_INFO(node->get_logger(), "位姿为：%.2f %.2f %.2f", pose.translation().x(), pose.translation().y(),
           //               pose.so2().log());
-          std::this_thread::sleep_for(5ms);
+          std::this_thread::sleep_for(30ms);
       }).Go();
     rclcpp::shutdown();
 

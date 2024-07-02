@@ -25,8 +25,8 @@ public:
         /// 允许保持窗口比例的缩放
         cv::namedWindow("SubMap", cv::WINDOW_KEEPRATIO);
         cv::namedWindow("Map", cv::WINDOW_KEEPRATIO);
-        cv::resizeWindow("SubMap", cv::Size(1000, 500));
-        cv::resizeWindow("Map", cv::Size(500, 500));
+        cv::resizeWindow("SubMap", cv::Size(500, 1000));
+        cv::resizeWindow("Map", cv::Size(1000, 1000));
     }
 
     ~Viewer() { cv::destroyAllWindows(); }

@@ -171,37 +171,12 @@ bool Tracking::IsKeyFrame() {
  *      2. 跟踪重定位，这种重定位方式，是由于不良的子地图切换策略导致的跟踪失败的保障
  */
 void Tracking::TrackReloc() {
-    // if (!start_reloc_) {
-    //     std::vector<SubMap::Ptr> candidates;
-    //     int id = curr_map_->GetID();
-    //     int id_sub = id - 1, id_add = id + 1;
-    //     if (id_sub >= 0)
-    //         candidates.push_back(all_maps_->all_maps_[id_sub]);
-    //     if (id_add < all_maps_->all_maps_.size())
-    //         candidates.push_back(all_maps_->all_maps_[id_add]);
-    //     candidates.push_back(curr_map_);
-    //     float max_ratio = 0.f;
-    //     for (auto &candidate : candidates) {
-    //         curr_frame_->submap_ = candidate.get();
-    //         curr_frame_->SetPoseSub(candidate->GetPose().inverse() * curr_frame_->GetPose());
-    //         float ratio = candidate->Scan2Map(curr_frame_);
-    //         if (ratio > max_ratio) {
-    //             max_ratio = ratio;
-    //             curr_map_ = candidate;
-    //         }
-    //     }
-    //     if (max_ratio > options_->reloc_th_)
-    //         state_ = TrackState::TRACKED;
-    //     return;
-    // }
-
     auto field = std::make_shared<MLikehoodField>(options_);
     bool reloc_success = false;
     for (const auto &map : all_maps_->all_maps_) {
         SE2 reloc_pose;
         field->ResetField(map->map_, options_->field_range_);
         reloc_success = field->AddKeyframe(reloc_pose, curr_frame_);
-        std::cout << std::endl;
         if (reloc_success) {
             curr_map_ = map;
             curr_frame_->submap_ = map.get();

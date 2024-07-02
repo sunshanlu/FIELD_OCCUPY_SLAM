@@ -72,7 +72,7 @@ cv::Mat Viewer::DrawSubMap(cv::Mat FieldMap, cv::Mat OccupyMap, const SubMap::Pt
     cv::Mat FieldImg, SubMapImg;
     cv::cvtColor(FieldMap / submap->GetMaxFieldRange(), FieldImg, cv::COLOR_GRAY2BGR);
     FieldImg.convertTo(FieldImg, CV_8UC3, 255.0);
-    cv::hconcat(FieldImg, OccupyBW, SubMapImg);
+    cv::vconcat(FieldImg, OccupyBW, SubMapImg);
     cv::putText(SubMapImg, "SubMap " + std::to_string(submap->GetID()), cv::Point2f(20, 20), cv::FONT_HERSHEY_COMPLEX,
                 0.5, cv::Scalar(68, 24, 12));
     cv::putText(SubMapImg, "Keyframes " + std::to_string(submap->GetMapSize()), cv::Point2f(20, 50),
@@ -89,7 +89,7 @@ void Viewer::DrawFrame(cv::Mat &SubMapImg, const SubMap::Ptr &submap, const Fram
     for (int i = 0, rnum = frame->points_base_.size(); i < rnum; i++) {
         Vec2 Pw = frame->GetPose() * frame->points_base_[i];
         cv::Point2i PsField = submap->World2Sub(Pw);
-        cv::Point2i PsOccupy(PsField.x + options_->width_, PsField.y);
+        cv::Point2i PsOccupy(PsField.x, PsField.y + options_->height_);
         if (PsOccupy.x > 0 && PsOccupy.x < SubMapImg.cols && PsOccupy.y > 0 && PsOccupy.y < SubMapImg.rows)
             SubMapImg.at<cv::Vec3b>(PsOccupy) = cv::Vec3b(0, 0, 255);
 
@@ -109,7 +109,7 @@ void Viewer::DrawRobotSub(cv::Mat &SubMapImg, const SubMap::Ptr &submap, const F
               [&](const Vec2 &Pc) -> cv::Point2i { return submap->C2Sub(Pc); });
 
     DrawRobot(SubMapImg, submap->GetPose().inverse() * Twb,
-              [&](const Vec2 &Pc) -> cv::Point2i { return submap->C2Sub(Pc, options_->width_); });
+              [&](const Vec2 &Pc) -> cv::Point2i { return submap->C2Sub(Pc, options_->height_); });
 }
 
 /**

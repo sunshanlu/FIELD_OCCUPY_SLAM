@@ -67,8 +67,8 @@ public:
     cv::Point2i World2Sub(const Vec2 &Pw);
 
     /// 地图物理系转换为地图图像系（可设置x偏移量）
-    cv::Point2i C2Sub(const Vec2 &Ps, int deltax = 0) {
-        Vec2 origin(origin_[0] + deltax, origin_[1]);
+    cv::Point2i C2Sub(const Vec2 &Ps, int deltay = 0) {
+        Vec2 origin(origin_[0], origin_[1] + deltay);
         Eigen::Vector2i pf = (Ps * resolution_ + origin).cast<int>();
         return cv::Point2i(pf[0], pf[1]);
     }
